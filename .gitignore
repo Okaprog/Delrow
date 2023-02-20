@@ -2,3 +2,4 @@
 *.txt
 Pipfile.lock
 __pycache__/
+publish_copy/

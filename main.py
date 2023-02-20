@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 
 logger = logging.getLogger(__name__)
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 class MainWindow:
     TITLE = f'Delrow ver{VERSION}'
-    ENCODING = 'utf-8'
+    DEFAULT_ENCODING = 'utf-8'
     LISTBOX_Y = 30
 
-    def __init__(self, files: list[Path]) -> None:
+    def __init__(self, files: list[Path], encoding: str | None = None) -> None:
         logger.debug('MainWindow instance initialize start.')
         self.cbFilePath = sg.Combo(
             files, default_value=files[0], key="cbFP",
@@ -28,6 +28,7 @@ class MainWindow:
             enable_events=True, key='lbFR'
         )
         self.tSelectedRowsInfo = sg.Text('-')
+        self.encoding = encoding
 
         # ##### レイアウト設定
         self.layout = [[sg.Text('表示中のテキストファイル：'), self.cbFilePath],
@@ -43,6 +44,12 @@ class MainWindow:
         logger.debug('Window Opened.')
         self.nowfile = files[0]
         self._readFile(files[0])
+
+    def _encoding(self) -> str:
+        if self.encoding is None:
+            return self.DEFAULT_ENCODING
+        else:
+            return self.encoding
 
     def mainloop(self) -> None:
         """ウインドウイベントループ
@@ -70,7 +77,7 @@ class MainWindow:
             filepath (Path): ファイルパス（コンボボックスに表示されているものを渡すこと）
         """
         logger.debug(f'_readFile({filepath}) started.')
-        with open(filepath, 'r', encoding=self.ENCODING) as f:
+        with open(filepath, 'r', encoding=self._encoding()) as f:
             data: list[str] = []
             self.lbFileRows.update(
                 values=['読み込み中です...'], set_to_index=0, disabled=True)
@@ -149,7 +156,7 @@ class MainWindow:
             return
 
         data: list[str] = []
-        with open(filepath, 'r', encoding=self.ENCODING) as rf:
+        with open(filepath, 'r', encoding=self._encoding()) as rf:
             data = rf.readlines()
         logger.info((
             '対象ファイル %s\n'
@@ -157,7 +164,7 @@ class MainWindow:
                     , filepath, ''.join(data[start:end+1])[:-1])
         newdata = data[:start] + data[end+1:]
         try:
-            with open(filepath, 'w', encoding=self.ENCODING) as wf:
+            with open(filepath, 'w', encoding=self._encoding()) as wf:
                 wf.writelines(newdata)
         except PermissionError:
             errormes = f'ファイル「{filepath}」は開かれているため変更できません。'
@@ -192,13 +199,20 @@ if __name__ == '__main__':
     try:
         if len(sys.argv) < 2:
             raise RuntimeError('読み込むテキストファイルをD&Dしてください')
+        argv = sys.argv[1:]
+
+        encoding = None
+        if argv[0] == '--encoding':
+            # encoding特定モード
+            encoding = argv[1]
+            argv = argv[2:]
 
         files: list[Path] = []
-        for p in sys.argv[1:]:
+        for p in argv:
             _fileExistCheck(Path(p))
             files.append(Path(p))
 
-        mwin = MainWindow(files)
+        mwin = MainWindow(files, encoding)
         mwin.mainloop()
 
     except Exception as e:
